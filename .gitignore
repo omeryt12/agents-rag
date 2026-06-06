@@ -1,0 +1,9 @@
+.env.local
+.env
+data/
+ingest/__pycache__/
+__pycache__/
+*.pyc
+.vercel/
+node_modules/
+.python-version
