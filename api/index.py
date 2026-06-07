@@ -8,7 +8,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 
 app = Flask(__name__)
 
-# ── RAG config (single source of truth — mirrors /api/stats) ─────────────────
+
 CHUNK_SIZE    = 512
 OVERLAP_RATIO = 0.2
 TOP_K         = 10
@@ -38,7 +38,6 @@ def _get_index():
     return pc.index(os.environ["PINECONE_INDEX_NAME"])
 
 
-# ── POST /api/prompt ──────────────────────────────────────────────────────────
 @app.route("/api/prompt", methods=["POST"])
 def prompt():
     body = request.get_json(force=True, silent=True) or {}
@@ -50,14 +49,11 @@ def prompt():
     oai   = _get_oai()
     index = _get_index()
 
-    # 1. Embed the question
     emb_resp = oai.embeddings.create(model=EMBED_MODEL, input=question)
     query_vec = emb_resp.data[0].embedding
 
-    # 2. Query Pinecone
     result = index.query(vector=query_vec, top_k=TOP_K, include_metadata=True)
 
-    # 3. Build context array (authors kept for prompt but not in the returned array)
     matches = result.matches or []
     context = [
         {
@@ -70,13 +66,12 @@ def prompt():
         for m in matches
     ]
 
-    # 4. Build augmented prompt — include authors so the model can answer author questions
+
     context_block = "\n\n---\n\n".join(
         f'[{i + 1}] Title: "{c["title"]}"\nAuthors: {c["authors"] or "unknown"}\nPassage: {c["chunk"]}'
         for i, c in enumerate(context)
     )
 
-    # Return context without the internal authors field (matches assignment schema)
     context_out = [
         {k: v for k, v in c.items() if k != "authors"}
         for c in context
@@ -88,7 +83,6 @@ def prompt():
 
     augmented_prompt = {"System": SYSTEM_PROMPT, "User": user_message}
 
-    # 5. Call the chat model
     chat_resp = oai.chat.completions.create(
         model=CHAT_MODEL,
         messages=[
@@ -105,7 +99,6 @@ def prompt():
     })
 
 
-# ── GET /api/stats ────────────────────────────────────────────────────────────
 @app.route("/api/stats", methods=["GET"])
 def stats():
     return jsonify({
@@ -115,6 +108,5 @@ def stats():
     })
 
 
-# ── Local dev entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

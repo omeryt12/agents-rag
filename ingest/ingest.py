@@ -1,13 +1,3 @@
-"""
-One-time ingestion script.
-Reads the Medium articles CSV, chunks the text, embeds via LLMod.ai,
-and upserts vectors into Pinecone.
-
-Run from the project root:
-    cd agents_rag
-    python ingest/ingest.py
-"""
-
 import os
 import sys
 import time
@@ -17,13 +7,11 @@ from openai import OpenAI, APITimeoutError, APIConnectionError
 from pinecone import Pinecone, ServerlessSpec
 from dotenv import load_dotenv
 
-# Force UTF-8 output so Hebrew path names don't crash on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 load_dotenv(".env.local")
 
-# ── Config ────────────────────────────────────────────────────────────────────
 CHUNK_SIZE    = 512
 OVERLAP       = int(CHUNK_SIZE * 0.2)   # 102 tokens
 BATCH_SIZE    = 100                      # vectors per embed / upsert call
@@ -34,7 +22,6 @@ CSV_PATH      = os.path.join(os.path.dirname(__file__), "..", "data", "medium-en
 
 enc = tiktoken.get_encoding("cl100k_base")
 
-# ── Clients ───────────────────────────────────────────────────────────────────
 oai = OpenAI(
     api_key=os.environ["LLMOD_API_KEY"],
     base_url="https://api.llmod.ai/v1",
@@ -44,7 +31,6 @@ oai = OpenAI(
 pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def chunk_tokens(text: str) -> list[str]:
     tokens = enc.encode(text)
     chunks, start = [], 0
@@ -98,7 +84,6 @@ def ensure_index() -> None:
         print(f"Index '{INDEX_NAME}' already exists.")
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
     ensure_index()
     index = pc.index(INDEX_NAME)
